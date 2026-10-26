@@ -1,0 +1,783 @@
+{
+ "canvas": [
+  300,
+  116
+ ],
+ "scale": 2,
+ "poses": {
+  "p01_idle_peek": {
+   "body": "p01_idle_peek/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      130.8,
+      108.32,
+      12.67,
+      6.42,
+      -4.4
+     ],
+     "pupil": {
+      "image": "p01_idle_peek/pupil_0.png",
+      "frame": [
+       136.5,
+       105.5,
+       143.5,
+       112.5
+      ],
+      "center": [
+       139.75,
+       109.0
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      216,
+      144,
+      114
+     ]
+    },
+    {
+     "ellipse": [
+      169.48,
+      107.65,
+      10.25,
+      7.06,
+      -5.3
+     ],
+     "pupil": {
+      "image": "p01_idle_peek/pupil_1.png",
+      "frame": [
+       172.5,
+       104.5,
+       179.5,
+       111.5
+      ],
+      "center": [
+       175.98,
+       107.77
+      ],
+      "radius": 1.64
+     },
+     "lid": [
+      216,
+      144,
+      114
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    79.25,
+    33.0,
+    220.5,
+    114.25
+   ],
+   "pupil_span": 36.25
+  },
+  "p02_look_around": {
+   "body": "p02_look_around/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      135.53,
+      89.86,
+      14.36,
+      10.07,
+      -5.0
+     ],
+     "pupil": {
+      "image": "p02_look_around/pupil_0.png",
+      "frame": [
+       135.0,
+       80.0,
+       152.0,
+       97.0
+      ],
+      "center": [
+       143.25,
+       88.25
+      ],
+      "radius": 6.74
+     },
+     "lid": [
+      243,
+      171,
+      141
+     ]
+    },
+    {
+     "ellipse": [
+      171.53,
+      84.69,
+      13.14,
+      10.12,
+      -4.8
+     ],
+     "pupil": {
+      "image": "p02_look_around/pupil_1.png",
+      "frame": [
+       167.5,
+       75.5,
+       183.5,
+       91.5
+      ],
+      "center": [
+       175.25,
+       83.5
+      ],
+      "radius": 6.14
+     },
+     "lid": [
+      243,
+      171,
+      141
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    81.0,
+    19.25,
+    209.25,
+    114.0
+   ],
+   "pupil_span": 32.35
+  },
+  "p03_blink": {
+   "body": "p03_blink/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      170.07,
+      94.34,
+      11.69,
+      10.12,
+      16.5
+     ],
+     "pupil": {
+      "image": "p03_blink/pupil_0.png",
+      "frame": [
+       174.5,
+       82.5,
+       181.5,
+       89.5
+      ],
+      "center": [
+       177.75,
+       85.75
+      ],
+      "radius": 1.63
+     },
+     "lid": [
+      251,
+      181,
+      151
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    75.75,
+    23.5,
+    208.75,
+    114.0
+   ]
+  },
+  "p04_curious": {
+   "body": "p04_curious/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      146.38,
+      97.38,
+      16.21,
+      11.78,
+      0.7
+     ],
+     "pupil": {
+      "image": "p04_curious/pupil_0.png",
+      "frame": [
+       156.0,
+       87.5,
+       163.0,
+       94.5
+      ],
+      "center": [
+       159.25,
+       91.0
+      ],
+      "radius": 1.63
+     },
+     "lid": [
+      246,
+      173,
+      144
+     ]
+    },
+    {
+     "ellipse": [
+      186.72,
+      88.52,
+      14.98,
+      12.3,
+      3.3
+     ],
+     "pupil": {
+      "image": "p04_curious/pupil_1.png",
+      "frame": [
+       191.5,
+       78.0,
+       198.5,
+       85.0
+      ],
+      "center": [
+       194.75,
+       81.5
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      246,
+      173,
+      144
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": {
+    "image": "p04_curious/fx.png",
+    "frame": [
+     233.0,
+     24.0,
+     257.5,
+     63.5
+    ],
+    "pivot": [
+     245.03,
+     39.47
+    ]
+   },
+   "bounds": [
+    83.0,
+    12.0,
+    228.0,
+    113.5
+   ],
+   "pupil_span": 36.75
+  },
+  "p05_notice": {
+   "body": "p05_notice/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      146.53,
+      90.91,
+      15.89,
+      13.96,
+      -14.6
+     ],
+     "pupil": {
+      "image": "p05_notice/pupil_0.png",
+      "frame": [
+       143.0,
+       83.5,
+       157.5,
+       98.0
+      ],
+      "center": [
+       150.25,
+       90.5
+      ],
+      "radius": 5.37
+     },
+     "lid": [
+      244,
+      170,
+      141
+     ]
+    },
+    {
+     "ellipse": [
+      184.89,
+      83.72,
+      14.21,
+      13.25,
+      31.9
+     ],
+     "pupil": {
+      "image": "p05_notice/pupil_1.png",
+      "frame": [
+       179.5,
+       75.5,
+       195.5,
+       91.5
+      ],
+      "center": [
+       187.5,
+       83.25
+      ],
+      "radius": 6.14
+     },
+     "lid": [
+      244,
+      170,
+      141
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": {
+    "image": "p05_notice/fx.png",
+    "frame": [
+     226.0,
+     13.5,
+     259.5,
+     62.0
+    ],
+    "pivot": [
+     242.81,
+     38.71
+    ]
+   },
+   "bounds": [
+    84.0,
+    14.25,
+    225.75,
+    113.75
+   ],
+   "pupil_span": 37.95
+  },
+  "p06_call_attention": {
+   "body": "p06_call_attention/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      143.7,
+      84.17,
+      15.49,
+      11.66,
+      -12.1
+     ],
+     "pupil": {
+      "image": "p06_call_attention/pupil_0.png",
+      "frame": [
+       143.5,
+       77.5,
+       160.0,
+       94.0
+      ],
+      "center": [
+       151.5,
+       85.75
+      ],
+      "radius": 6.31
+     },
+     "lid": [
+      243,
+      170,
+      140
+     ]
+    },
+    {
+     "ellipse": [
+      181.08,
+      79.16,
+      13.26,
+      11.99,
+      -3.5
+     ],
+     "pupil": {
+      "image": "p06_call_attention/pupil_1.png",
+      "frame": [
+       178.5,
+       75.0,
+       194.5,
+       91.0
+      ],
+      "center": [
+       186.25,
+       82.75
+      ],
+      "radius": 6.12
+     },
+     "lid": [
+      243,
+      170,
+      140
+     ]
+    }
+   ],
+   "hand": {
+    "image": "p06_call_attention/hand.png",
+    "frame": [
+     40.5,
+     60.0,
+     117.5,
+     115.0
+    ],
+    "pivot": [
+     103.0,
+     113.0
+    ]
+   },
+   "fx": {
+    "image": "p06_call_attention/fx.png",
+    "frame": [
+     33.5,
+     25.5,
+     74.0,
+     63.5
+    ],
+    "pivot": [
+     54.88,
+     44.78
+    ]
+   },
+   "bounds": [
+    42.5,
+    13.75,
+    219.75,
+    113.5
+   ],
+   "pupil_span": 34.88
+  },
+  "p07_point": {
+   "body": "p07_point/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      145.95,
+      81.2,
+      16.22,
+      10.06,
+      -14.6
+     ],
+     "pupil": {
+      "image": "p07_point/pupil_0.png",
+      "frame": [
+       149.5,
+       81.5,
+       156.5,
+       88.5
+      ],
+      "center": [
+       152.75,
+       84.75
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      238,
+      168,
+      137
+     ]
+    },
+    {
+     "ellipse": [
+      185.31,
+      76.77,
+      14.56,
+      10.34,
+      2.6
+     ],
+     "pupil": {
+      "image": "p07_point/pupil_1.png",
+      "frame": [
+       176.5,
+       78.5,
+       183.5,
+       85.5
+      ],
+      "center": [
+       180.0,
+       82.0
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      238,
+      168,
+      137
+     ]
+    }
+   ],
+   "hand": {
+    "image": "p07_point/hand.png",
+    "frame": [
+     57.5,
+     79.0,
+     104.5,
+     116.0
+    ],
+    "pivot": [
+     59.0,
+     110.0
+    ]
+   },
+   "fx": null,
+   "bounds": [
+    59.5,
+    5.0,
+    224.0,
+    115.75
+   ],
+   "pupil_span": 27.39
+  },
+  "p08_serious": {
+   "body": "p08_serious/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      133.0,
+      99.43,
+      15.46,
+      7.71,
+      5.1
+     ],
+     "pupil": {
+      "image": "p08_serious/pupil_0.png",
+      "frame": [
+       141.5,
+       92.0,
+       148.5,
+       99.0
+      ],
+      "center": [
+       145.0,
+       95.5
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      243,
+      169,
+      141
+     ]
+    },
+    {
+     "ellipse": [
+      174.23,
+      95.72,
+      15.59,
+      8.59,
+      -9.4
+     ],
+     "pupil": {
+      "image": "p08_serious/pupil_1.png",
+      "frame": [
+       174.0,
+       88.0,
+       181.0,
+       95.0
+      ],
+      "center": [
+       177.25,
+       91.25
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      243,
+      169,
+      141
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    78.25,
+    9.0,
+    219.75,
+    113.5
+   ],
+   "pupil_span": 32.53
+  },
+  "p09_thinking": {
+   "body": "p09_thinking/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      133.28,
+      75.29,
+      14.82,
+      11.31,
+      2.7
+     ],
+     "pupil": {
+      "image": "p09_thinking/pupil_0.png",
+      "frame": [
+       144.0,
+       68.0,
+       151.0,
+       75.0
+      ],
+      "center": [
+       147.25,
+       71.25
+      ],
+      "radius": 1.65
+     },
+     "lid": [
+      246,
+      176,
+      148
+     ]
+    },
+    {
+     "ellipse": [
+      172.2,
+      63.37,
+      14.19,
+      12.74,
+      9.1
+     ],
+     "pupil": {
+      "image": "p09_thinking/pupil_1.png",
+      "frame": [
+       172.5,
+       54.0,
+       184.5,
+       66.0
+      ],
+      "center": [
+       178.5,
+       59.75
+      ],
+      "radius": 4.2
+     },
+     "lid": [
+      246,
+      176,
+      148
+     ]
+    }
+   ],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    75.5,
+    0.25,
+    215.0,
+    113.5
+   ],
+   "pupil_span": 33.3
+  },
+  "p10_happy": {
+   "body": "p10_happy/body.png",
+   "eyes": [],
+   "hand": {
+    "image": "p10_happy/hand.png",
+    "frame": [
+     209.5,
+     48.5,
+     243.5,
+     105.5
+    ],
+    "pivot": [
+     225.0,
+     105.0
+    ]
+   },
+   "fx": {
+    "image": "p10_happy/fx.png",
+    "frame": [
+     94.0,
+     23.0,
+     264.0,
+     107.0
+    ],
+    "pivot": [
+     219.43,
+     54.41
+    ]
+   },
+   "bounds": [
+    77.75,
+    2.25,
+    242.5,
+    113.75
+   ]
+  },
+  "p11_playful": {
+   "body": "p11_playful/body.png",
+   "eyes": [
+    {
+     "ellipse": [
+      179.47,
+      70.34,
+      11.18,
+      10.43,
+      2.0
+     ],
+     "pupil": {
+      "image": "p11_playful/pupil_0.png",
+      "frame": [
+       184.0,
+       62.0,
+       191.0,
+       69.0
+      ],
+      "center": [
+       187.23,
+       65.52
+      ],
+      "radius": 1.64
+     },
+     "lid": [
+      246,
+      177,
+      148
+     ]
+    }
+   ],
+   "hand": {
+    "image": "p11_playful/hand.png",
+    "frame": [
+     207.0,
+     61.0,
+     252.0,
+     110.0
+    ],
+    "pivot": [
+     218.0,
+     105.5
+    ]
+   },
+   "fx": {
+    "image": "p11_playful/fx.png",
+    "frame": [
+     100.0,
+     39.0,
+     267.0,
+     102.5
+    ],
+    "pivot": [
+     226.17,
+     63.48
+    ]
+   },
+   "bounds": [
+    85.25,
+    3.75,
+    250.25,
+    113.75
+   ]
+  },
+  "p12_retreat": {
+   "body": "p12_retreat/body.png",
+   "eyes": [],
+   "hand": null,
+   "fx": null,
+   "bounds": [
+    81.0,
+    30.5,
+    219.75,
+    114.0
+   ]
+  }
+ }
+}

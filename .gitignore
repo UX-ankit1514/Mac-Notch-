@@ -1,0 +1,6 @@
+.build/
+build/
+AssetPipeline/work/
+AssetPipeline/vendor/
+*.xcodeproj/xcuserdata/
+.DS_Store
