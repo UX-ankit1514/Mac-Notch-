@@ -45,13 +45,26 @@ struct CharacterView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: CharacterNSView, context: Context) {
-        if view.rig.canvasCenter != canvasCenter {
-            CATransaction.begin()
-            CATransaction.setAnimationDuration(0.32)
-            CATransaction.setAnimationTimingFunction(Curve.out)
-            view.rig.canvasCenter = canvasCenter
-            CATransaction.commit()
-        }
+        // Per frame while SwiftUI animates (see AnimatedCharacterView), so no
+        // Core Animation easing of its own: it rides the notch's spring.
+        if view.rig.canvasCenter != canvasCenter { view.rig.canvasCenter = canvasCenter }
+    }
+}
+
+/// The notch's character. Interpolates `canvasCenter` on the same spring as
+/// its frame, so the character glides with the notch instead of jumping to
+/// its new horizontal anchor when the layout changes.
+struct AnimatedCharacterView: View, Animatable {
+    let controller: CharacterController
+    var canvasCenter: CGFloat
+
+    var animatableData: CGFloat {
+        get { canvasCenter }
+        set { canvasCenter = newValue }
+    }
+
+    var body: some View {
+        CharacterView(controller: controller, canvasCenter: canvasCenter)
     }
 }
 

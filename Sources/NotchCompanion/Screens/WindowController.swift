@@ -93,7 +93,9 @@ struct MainView: View {
                 case .settings: SettingsView(model: model)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // minHeight 0: a screen can never force the split view taller than the window. If one did,
+            // the sidebar and content would be centred far off screen and the window would look blank.
+            .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
@@ -126,6 +128,35 @@ struct StillCharacter: NSViewRepresentable {
 
     func updateNSView(_ view: CharacterNSView, context: Context) {
         view.rig.show(Pose.key(for: emotion), fade: 0.15)
+    }
+}
+
+/// "Open at login" that shows what macOS actually did: registration can
+/// need approval in System Settings, or fail for an app outside Applications.
+struct LoginItemToggle: View {
+    @LocalState private var enabled = LoginItem.isEnabled
+    @LocalState private var status = LoginItem.statusText
+    @LocalState private var error: String?
+
+    var body: some View {
+        Toggle("Open at login", isOn: Binding(get: { enabled }, set: set))
+            .onAppear(perform: reload)
+        Text(error ?? "Status: \(status)").font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func set(_ on: Bool) {
+        do {
+            try LoginItem.set(on)
+            error = nil
+        } catch {
+            self.error = "Couldn't change it: \(error.localizedDescription)"
+        }
+        reload()
+    }
+
+    private func reload() {
+        enabled = LoginItem.isEnabled
+        status = LoginItem.statusText
     }
 }
 

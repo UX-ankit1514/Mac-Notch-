@@ -25,11 +25,11 @@ struct OnboardingView: View {
 
             Group {
                 switch step {
-                case 0: welcome
-                case 1: chooseTools
-                case 2: connect
-                case 3: test
-                default: basics
+                case 0: scrolling(welcome)
+                case 1: scrolling(chooseTools)
+                case 2: scrolling(connect)
+                case 3: scrolling(test)
+                default: basics     // its grouped Form scrolls by itself
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -40,9 +40,9 @@ struct OnboardingView: View {
                 }
                 Spacer()
                 if step < steps.count - 1 {
+                    // Never a dead end: with no agent chosen, connecting just waits for later.
                     Button(step == 0 ? "Get Started" : "Continue") { step += 1 }
                         .keyboardShortcut(.defaultAction)
-                        .disabled(step == 1 && selected.isEmpty)
                 } else {
                     Button("Done") {
                         model.settings.hasCompletedOnboarding = true
@@ -59,6 +59,13 @@ struct OnboardingView: View {
         }
     }
 
+    /// Step content scrolls between the fixed progress bar and buttons, like every other screen.
+    /// Unscrolled, its wrapping text reported a minimum height measured at a sliver of width;
+    /// the split view grew thousands of points to fit it and the whole window showed blank.
+    private func scrolling(_ content: some View) -> some View {
+        ScrollView { content.frame(maxWidth: .infinity, alignment: .leading) }
+    }
+
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 16) {
             NotchCard(height: 150) { CharacterView(controller: preview) }
@@ -70,20 +77,33 @@ struct OnboardingView: View {
         }
     }
 
+    /// Selected agents that are actually installed: the only ones that can be connected or tested.
+    private var chosen: [AgentKind] {
+        AgentKind.allCases.filter { selected.contains($0) && model.integrations.status($0).isInstalled }
+    }
+
     private var chooseTools: some View {
         VStack(alignment: .leading, spacing: 14) {
             ScreenHeader(title: "Which agents do you use?",
                          subtitle: "Notch Companion checks whether each one is installed on this Mac.")
             ForEach(AgentKind.allCases, id: \.self) { agent in
                 let status = model.integrations.status(agent)
-                Toggle(isOn: Binding(get: { selected.contains(agent) },
+                let checking = !status.isInstalled && model.integrations.detecting
+                Toggle(isOn: Binding(get: { status.isInstalled && selected.contains(agent) },
                                      set: { if $0 { selected.insert(agent) } else { selected.remove(agent) } })) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(agent.displayName).font(.headline)
-                        Text(status.isInstalled ? "Installed\(status.version.map { " · v\($0)" } ?? "") · \(status.state)"
-                                                : "Not installed on this Mac")
-                            .font(.callout)
-                            .foregroundStyle(status.isInstalled ? Color.secondary : Color.orange)
+                        Group {
+                            if status.isInstalled {
+                                Text("Installed\(status.version.map { " · v\($0)" } ?? "") · \(status.state)")
+                            } else if checking {
+                                Text("Checking…")
+                            } else {
+                                Text("Not installed on this Mac").foregroundStyle(.orange)
+                            }
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                     }
                 }
                 .toggleStyle(.checkbox)
@@ -99,29 +119,48 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             ScreenHeader(title: "Connect notification hooks",
                          subtitle: "Here's exactly what changes before you agree.")
-            VStack(alignment: .leading, spacing: 6) {
-                Label("Adds hook entries to ~/.claude/settings.json and ~/.codex/hooks.json.", systemImage: "doc.badge.plus")
-                Label("Keeps every existing setting and hook, and saves a timestamped backup first.", systemImage: "externaldrive.badge.checkmark")
-                Label("Hooks only report events. They never approve, deny or run anything.", systemImage: "hand.raised.slash")
-                Label("Only metadata leaves the hook: event type, tool name, project folder name. Never prompts, code or commands.", systemImage: "lock")
-            }
-            .font(.callout)
-            ForEach(AgentKind.allCases.filter(selected.contains), id: \.self) { agent in
-                AgentConnectRow(model: model, agent: agent, showsTest: false)
+            if chosen.isEmpty {
+                noAgentsChosen
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Adds hook entries to \(chosen.map(Self.configFile).formatted(.list(type: .and))).",
+                          systemImage: "doc.badge.plus")
+                    Label("Keeps every existing setting and hook, and saves a timestamped backup first.", systemImage: "externaldrive.badge.checkmark")
+                    Label("Hooks only report events. They never approve, deny or run anything.", systemImage: "hand.raised.slash")
+                    Label("Only metadata leaves the hook: event type, tool name, project folder name. Never prompts, code or commands.", systemImage: "lock")
+                }
+                .font(.callout)
+                ForEach(chosen, id: \.self) { agent in
+                    AgentConnectRow(model: model, agent: agent, showsTest: false)
+                }
             }
         }
+    }
+
+    private static func configFile(_ agent: AgentKind) -> String {
+        switch agent {
+        case .claudeCode: "~/.claude/settings.json"
+        case .codex: "~/.codex/hooks.json"
+        }
+    }
+
+    private var noAgentsChosen: some View {
+        Text("No installed agent is selected. You can connect one any time from Connect Your Tools in the menu bar.")
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var test: some View {
         VStack(alignment: .leading, spacing: 14) {
             ScreenHeader(title: "Try it",
                          subtitle: "This sends a simulated permission request through the real hook helper.")
+            if chosen.isEmpty { noAgentsChosen }
             HStack {
-                ForEach(AgentKind.allCases.filter(selected.contains), id: \.self) { agent in
+                ForEach(chosen, id: \.self) { agent in
                     Button("Test \(agent.displayName)") { model.integrations.test(agent) }
                 }
             }
-            ForEach(AgentKind.allCases.filter(selected.contains), id: \.self) { agent in
+            ForEach(chosen, id: \.self) { agent in
                 if let message = model.integrations.status(agent).message {
                     Text("\(agent.displayName): \(message)").font(.callout).foregroundStyle(.secondary)
                 }
@@ -141,9 +180,7 @@ struct OnboardingView: View {
                 Picker("Character motion", selection: $model.settings.motionIntensity) {
                     ForEach(MotionIntensity.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
-                Toggle("Open at login", isOn: Binding(get: { LoginItem.isEnabled },
-                                                      set: { try? LoginItem.set($0) }))
-                Text("Login item: \(LoginItem.statusText)").font(.caption).foregroundStyle(.secondary)
+                LoginItemToggle()
             }
             .formStyle(.grouped)
         }

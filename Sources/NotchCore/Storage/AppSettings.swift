@@ -45,24 +45,32 @@ public struct AppSettings: Codable, Sendable, Equatable {
         return minute >= quietHoursStart || minute < quietHoursEnd
     }
 
-    // Decoding tolerates fields added in later versions.
+    // Decoding tolerates fields added in later versions, and a value this
+    // version can't read (written by a newer one) falls back to its default
+    // instead of resetting every other preference.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        func read<T: Decodable>(_ key: CodingKeys, as _: T.Type = T.self) -> T? {
+            try? c.decodeIfPresent(T.self, forKey: key)
+        }
         let d = AppSettings()
-        hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? d.hasCompletedOnboarding
-        soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? d.soundEnabled
-        motionIntensity = try c.decodeIfPresent(MotionIntensity.self, forKey: .motionIntensity) ?? d.motionIntensity
-        reduceMotion = try c.decodeIfPresent(Bool.self, forKey: .reduceMotion) ?? d.reduceMotion
-        quietMode = try c.decodeIfPresent(Bool.self, forKey: .quietMode) ?? d.quietMode
-        quietHoursEnabled = try c.decodeIfPresent(Bool.self, forKey: .quietHoursEnabled) ?? d.quietHoursEnabled
-        quietHoursStart = try c.decodeIfPresent(Int.self, forKey: .quietHoursStart) ?? d.quietHoursStart
-        quietHoursEnd = try c.decodeIfPresent(Int.self, forKey: .quietHoursEnd) ?? d.quietHoursEnd
-        respectFocus = try c.decodeIfPresent(Bool.self, forKey: .respectFocus) ?? d.respectFocus
-        enabledCategories = try c.decodeIfPresent(Set<EventCategory>.self, forKey: .enabledCategories) ?? d.enabledCategories
-        enabledAgents = try c.decodeIfPresent(Set<AgentKind>.self, forKey: .enabledAgents) ?? d.enabledAgents
-        reminderMinutes = try c.decodeIfPresent(Int.self, forKey: .reminderMinutes) ?? d.reminderMinutes
-        historyRetentionDays = try c.decodeIfPresent(Int.self, forKey: .historyRetentionDays) ?? d.historyRetentionDays
-        hotkeyEnabled = try c.decodeIfPresent(Bool.self, forKey: .hotkeyEnabled) ?? d.hotkeyEnabled
+        hasCompletedOnboarding = read(.hasCompletedOnboarding) ?? d.hasCompletedOnboarding
+        soundEnabled = read(.soundEnabled) ?? d.soundEnabled
+        motionIntensity = read(.motionIntensity) ?? d.motionIntensity
+        reduceMotion = read(.reduceMotion) ?? d.reduceMotion
+        quietMode = read(.quietMode) ?? d.quietMode
+        quietHoursEnabled = read(.quietHoursEnabled) ?? d.quietHoursEnabled
+        quietHoursStart = read(.quietHoursStart) ?? d.quietHoursStart
+        quietHoursEnd = read(.quietHoursEnd) ?? d.quietHoursEnd
+        respectFocus = read(.respectFocus) ?? d.respectFocus
+        // Set members are read one by one, so an unknown category or agent is skipped.
+        enabledCategories = read(.enabledCategories, as: [String].self)
+            .map { Set($0.compactMap(EventCategory.init(rawValue:))) } ?? d.enabledCategories
+        enabledAgents = read(.enabledAgents, as: [String].self)
+            .map { Set($0.compactMap(AgentKind.init(rawValue:))) } ?? d.enabledAgents
+        reminderMinutes = read(.reminderMinutes) ?? d.reminderMinutes
+        historyRetentionDays = read(.historyRetentionDays) ?? d.historyRetentionDays
+        hotkeyEnabled = read(.hotkeyEnabled) ?? d.hotkeyEnabled
     }
 
     public static func load(from defaults: UserDefaults = .standard) -> AppSettings {

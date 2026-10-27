@@ -26,7 +26,8 @@ struct AgentStatus: Equatable {
 @Observable
 final class IntegrationManager {
     private(set) var statuses: [AgentKind: AgentStatus] = [:]
-    private(set) var busy = false
+    /// True until the first search for agent binaries finishes.
+    private(set) var detecting = true
     let paths: AppPaths
 
     init(paths: AppPaths) {
@@ -106,6 +107,7 @@ final class IntegrationManager {
             statuses[agent]?.binaryPath = found?.path
             statuses[agent]?.version = found?.version
         }
+        detecting = false
     }
 
     // MARK: Actions
@@ -184,8 +186,8 @@ final class IntegrationManager {
         return Located(path: path, version: version)
     }
 
-    /// Runs a short command with a 5-second limit.
-    nonisolated static func run(_ executable: String, _ arguments: [String]) -> String? {
+    /// Runs a short command, giving up after `timeout` seconds.
+    nonisolated static func run(_ executable: String, _ arguments: [String], timeout: TimeInterval = 5) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -194,7 +196,7 @@ final class IntegrationManager {
         process.standardError = Pipe()
         process.standardInput = FileHandle.nullDevice
         do { try process.run() } catch { return nil }
-        let deadline = Date().addingTimeInterval(5)
+        let deadline = Date().addingTimeInterval(timeout)
         while process.isRunning && Date() < deadline { usleep(20_000) }
         if process.isRunning { process.terminate(); return nil }
         return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)

@@ -87,16 +87,12 @@ private struct HistoryRow: View {
 /// Settings (PRD FR-10, §15.5).
 struct SettingsView: View {
     let model: AppModel
-    @LocalState private var loginError: String?
 
     var body: some View {
         @Bindable var model = model
         Form {
             Section("General") {
-                Toggle("Open at login", isOn: Binding(get: { LoginItem.isEnabled }, set: { enabled in
-                    do { try LoginItem.set(enabled); loginError = nil } catch { loginError = error.localizedDescription }
-                }))
-                Text(loginError ?? "Status: \(LoginItem.statusText)").font(.caption).foregroundStyle(.secondary)
+                LoginItemToggle()
                 Toggle("Show pending requests with ⌃⌥N", isOn: $model.settings.hotkeyEnabled)
             }
 

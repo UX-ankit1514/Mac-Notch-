@@ -62,6 +62,24 @@ private let existingClaudeSettings = """
         #expect(throws: JSONParseError.self) { try JSONValue.parse(#"{"a": }"#) }
         #expect(throws: JSONParseError.self) { try JSONValue.parse(#"{"a": 1} trailing"#) }
     }
+
+    // Tool output reaches the hook verbatim, so broken escapes must not crash it.
+    @Test func `lone surrogates become replacement characters`() throws {
+        // A high surrogate followed by an escape that isn't a low surrogate.
+        let u = "\\" + "u"
+        let value = try JSONValue.parse(#"{"a":"x\ud800"# + u + #"0041y","b":"\udc00","c":"\ud83d"}"#)
+        #expect(value["a"]?.string == "x\u{FFFD}Ay")
+        #expect(value["b"]?.string == "\u{FFFD}")
+        #expect(value["c"]?.string == "\u{FFFD}")
+    }
+
+    @Test func `out-of-range numbers read as no integer instead of trapping`() throws {
+        let value = try JSONValue.parse(#"{"big":1e300,"neg":-1e300,"ok":2.0,"frac":1.5}"#)
+        #expect(value["big"]?.int == nil)
+        #expect(value["neg"]?.int == nil)
+        #expect(value["ok"]?.int == 2)
+        #expect(value["frac"]?.int == 1)
+    }
 }
 
 @Suite struct HookInstallerTests {
@@ -284,6 +302,15 @@ private let existingClaudeSettings = """
         let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"soundEnabled":false}"#.utf8))
         #expect(!decoded.soundEnabled)
         #expect(decoded.reminderMinutes == 5)
+    }
+
+    @Test func `settings from a newer version keep every value this one understands`() throws {
+        let json = #"{"hasCompletedOnboarding":true,"motionIntensity":"wild","enabledAgents":["codex","gemini"],"enabledCategories":["failures","alerts"]}"#
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(decoded.hasCompletedOnboarding)
+        #expect(decoded.motionIntensity == .standard)
+        #expect(decoded.enabledAgents == [.codex])
+        #expect(decoded.enabledCategories == [.failures])
     }
 
     @Test func `quiet hours wrap past midnight`() throws {

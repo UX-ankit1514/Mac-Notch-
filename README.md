@@ -149,7 +149,7 @@ The current art is upscaled from small crops, and mouths and brows are part of e
 
 | Command | What it does |
 |---|---|
-| `Scripts/test.sh` | 67 tests, run in debug and release (`-O`). |
+| `Scripts/test.sh` | 71 tests, run in debug and release (`-O`). |
 | `Scripts/test.sh --quick` | Debug only. |
 | `Scripts/qa-notch.sh` | Real hook → socket → notch pass, with a contact sheet. Needs Screen Recording permission for your terminal. |
 | `open "build/Notch Companion.app" --args --demo all` | Plays every emotion. Also `envy`, `list`, or an emotion name. |

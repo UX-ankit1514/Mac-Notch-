@@ -10,12 +10,15 @@ final class MotionDirector {
     let rig: CharacterRig
     private(set) var machine = MotionStateMachine()
     private var pending: [DispatchWorkItem] = []
+    /// Reports the running reaction's end; a newer reaction replaces it.
+    private var reactionDone: DispatchWorkItem?
     private var idleTask: Task<Void, Never>?
 
     /// 0.55 subtle … 1.3 lively.
     var intensity: Double = 1
     var reduceMotion = false
-    /// Called when the exit animation has finished (the notch may collapse).
+    /// Called once the retreat is well under way, so the notch closes over
+    /// its tail instead of waiting for it (one continuous exit, not two steps).
     var onHidden: (() -> Void)?
 
     init(rig: CharacterRig) {
@@ -58,6 +61,17 @@ final class MotionDirector {
     private func cancelScheduled() {
         pending.forEach { $0.cancel() }
         pending.removeAll()
+        reactionDone?.cancel()
+        reactionDone = nil
+    }
+
+    /// One report per reaction: when a new emotion interrupts, the old
+    /// reaction's report would otherwise start idling mid-reaction.
+    private func finishReaction(after seconds: Double) {
+        reactionDone?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.send(.reactionFinished) }
+        reactionDone = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
     }
 
     // MARK: Commands
@@ -65,8 +79,8 @@ final class MotionDirector {
     private func run(_ command: MotionCommand) {
         switch command {
         case let .playEntry(emotion): entry(emotion)
-        case let .playReaction(emotion): after(react(emotion)) { [weak self] in self?.send(.reactionFinished) }
-        case let .playReminder(emotion): after(remind(emotion)) { [weak self] in self?.send(.reactionFinished) }
+        case let .playReaction(emotion): finishReaction(after: react(emotion))
+        case let .playReminder(emotion): finishReaction(after: remind(emotion))
         case let .crossfade(emotion): crossfade(to: emotion)
         case .startIdle: startIdle()
         case .stopIdle: stopIdle()
@@ -90,19 +104,32 @@ final class MotionDirector {
         let key = Pose.key(for: emotion)
         if reduceMotion {
             rig.show(key, fade: 0)
-            actor.setValue(0, forKeyPath: "transform.translation.y")
-            actor.opacity = 0
+            place(translationY: 0, opacity: 0)
             actor.animate("opacity", to: Float(1), duration: 0.2, curve: Curve.ease)
             after(0.2) { [weak self] in self?.send(.entered) }
             return
         }
         // Start low (the designer's "Idle Peek"), rise, settle into the key pose.
-        actor.opacity = 1
         rig.show(.idlePeek, fade: 0)
-        actor.setValue(-70, forKeyPath: "transform.translation.y")
+        place(translationY: -70, opacity: 1)
         actor.animate("transform.translation.y", to: 0, duration: 0.32, delay: 0.05, curve: Curve.out)
         if key != .idlePeek { rig.show(key, fade: 0.16, delay: 0.22) }
         after(0.38) { [weak self] in self?.send(.entered) }
+    }
+
+    /// The entry's starting state, set without implicit animation. Tilt and
+    /// scale go back to rest too: reactions like Sadness's droop and Anger's
+    /// lean-in leave them changed, and the next alert must not inherit them.
+    private func place(translationY: Double, opacity: Float) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        actor.setValue(translationY, forKeyPath: "transform.translation.y")
+        actor.setValue(0, forKeyPath: "transform.rotation.z")
+        actor.setValue(1, forKeyPath: "transform.scale")
+        actor.removeAnimation(forKey: "transform.rotation.z")
+        actor.removeAnimation(forKey: "transform.scale")
+        actor.opacity = opacity
+        CATransaction.commit()
     }
 
     private func exit() {
@@ -114,11 +141,13 @@ final class MotionDirector {
             rig.show(.retreat, fade: 0.12)
             actor.animate("transform.translation.y", to: -80, duration: 0.25, curve: Curve.out)
         }
+        // The notch's own changes reach the screen a frame or two after Core
+        // Animation's, so ask early enough that it closes while the retreat ends.
+        after(0.08) { [weak self] in self?.onHidden?() }
         after(0.26) { [weak self] in
             guard let self else { return }
             self.rig.halt()
             self.send(.exited)
-            self.onHidden?()
         }
     }
 

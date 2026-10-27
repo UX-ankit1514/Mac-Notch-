@@ -38,7 +38,10 @@ final class AppModel {
 
     private(set) var manager = NotificationManager()
     private(set) var currentAlert: NotchAlert?
+    /// Every pending request, dismissed ones included (the menu bar).
     private(set) var pending: [NotificationRecord] = []
+    /// Pending requests not dismissed from the notch (the notch's list).
+    private(set) var waiting: [NotificationRecord] = []
     private(set) var history: [NotificationRecord] = []
     private(set) var diagnostics = Diagnostics()
     private(set) var lastNavigation: String?
@@ -124,8 +127,7 @@ final class AppModel {
         manager.restore(restored)
         let expired = manager.expire()
         store.upsert(expired)
-        refresh()
-        history = store.recent()
+        refresh(reloadHistory: true)
     }
 
     /// After sleep: reconcile requests whose agent died, restart the receiver if needed.
@@ -147,11 +149,13 @@ final class AppModel {
             log.info("reminder for \(record.event.type.rawValue, privacy: .public)")
             reminderTick += 1
         }
+        var pruned = false
         if Date().timeIntervalSince(lastPrune) > 3600 {
             store?.prune(olderThan: Date().addingTimeInterval(-Double(settings.historyRetentionDays) * 86400))
             lastPrune = Date()
+            pruned = true
         }
-        refresh()
+        refresh(reloadHistory: !expired.isEmpty || pruned)
     }
 
     // MARK: Receiving
@@ -183,8 +187,7 @@ final class AppModel {
         }
         if result.playSound { playSound(for: event.priority) }
         if result.disposition == .presented { announce(event) }
-        if pending.count < 2 { showingList = false }
-        refresh()
+        refresh(reloadHistory: !result.changed.isEmpty)
     }
 
     private func policy() -> NotificationPolicy {
@@ -192,6 +195,7 @@ final class AppModel {
         p.enabledAgents = settings.enabledAgents
         p.enabledCategories = settings.enabledCategories
         p.quiet = settings.quietMode || settings.isQuietHours()
+        if settings.respectFocus { focus.refresh() }
         p.focusActive = settings.respectFocus && focus.isFocused
         p.soundEnabled = settings.soundEnabled
         p.frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
@@ -199,12 +203,22 @@ final class AppModel {
     }
 
     /// Republishes what the notch should show and schedules the next change.
-    func refresh() {
+    /// Agents report every tool call, so values are only reassigned when they
+    /// differ: an unchanged notch, menu or history must not re-render.
+    func refresh(reloadHistory: Bool = false) {
         let now = Date()
-        currentAlert = manager.currentAlert(now: now)
-        pending = manager.allPending
-        if pending.count < 2 && showingList && pending.isEmpty { showingList = false }
-        history = store?.recent() ?? history
+        let alert = manager.currentAlert(now: now)
+        if alert != currentAlert { currentAlert = alert }
+        let all = manager.allPending
+        if all != pending { pending = all }
+        let shown = manager.pending
+        if shown != waiting { waiting = shown }
+        // The list stays open until it's hidden or there's nothing left in it.
+        if showingList && waiting.isEmpty { showingList = false }
+        if reloadHistory, let store {
+            let recent = store.recent()
+            if recent != history { history = recent }
+        }
 
         deadlineTimer?.invalidate()
         if let deadline = manager.nextDeadline(now: now) {
@@ -219,26 +233,27 @@ final class AppModel {
     func dismiss(_ id: UUID) {
         manager.dismiss(id)
         if let record = manager.records[id] { store?.upsert([record]) }
-        refresh()
+        refresh(reloadHistory: true)
     }
 
     func dismissAll() {
-        manager.dismissAll()
+        store?.upsert(manager.dismissAll())
         showingList = false
-        refresh()
+        refresh(reloadHistory: true)
     }
 
     func showPendingList() {
         manager.undismissAll()
-        showingList = !manager.allPending.isEmpty
+        showingList = !manager.pending.isEmpty
         refresh()
     }
 
     /// Returns to the source. Never marks the request resolved: only the agent can.
-    func open(_ record: NotificationRecord) {
+    func open(_ record: NotificationRecord, completion: ((NavigationController.Result) -> Void)? = nil) {
         Task {
             let result = await navigation.open(record.event)
             lastNavigation = result.message
+            completion?(result)
         }
     }
 

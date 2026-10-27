@@ -4,7 +4,7 @@ Reference machine: MacBook with Apple M4, macOS 27.0.1, built-in notched display
 
 ## Automated tests: `Scripts/test.sh`
 
-**67 tests in 12 suites. All pass in debug, and in release (`-O`, the configuration that ships).**
+**71 tests in 12 suites. All pass in debug, and in release (`-O`, the configuration that ships).**
 
 | Suite | Covers |
 |---|---|
@@ -25,6 +25,9 @@ Reference machine: MacBook with Apple M4, macOS 27.0.1, built-in notched display
 2. **Release-only rejection of every real event.** The `CharacterSet.controlCharacters.contains` method-reference form rejected plain ASCII under `-O`. It's replaced with an explicit scalar check, which also blocks bidi-override characters. This is why the suite now runs in release too.
 3. **Process-wide `umask` race.** Binding the socket under a temporary umask made directories created concurrently on other threads unusable. The socket is now bound normally and then `chmod`ed.
 4. **Installer write path.** `replaceItemAt` failed intermittently under `-O`. It's replaced with stat, create with the original mode, then `rename(2)`, and it now writes through symlinks.
+5. **Hook crashes on hostile tool output (27 Oct).** A high surrogate followed by an ordinary `\u` escape underflowed in the JSON parser, and a huge number such as `"exit_code": 1e300` trapped converting to `Int`. Both killed `notch-hook` (exit 133). Unpaired surrogates now become U+FFFD and out-of-range numbers read as no integer.
+6. **Test notifications that never went away (27 Oct).** The onboarding test and Character Preview created real pending requests: they lived 12 hours, came back after a relaunch and kept the menu-bar count up. Simulated requests now settle when dismissed and expire after 2 minutes.
+7. **Settings reset by one unknown value (27 Oct).** A single value written by a newer version reset every preference, onboarding included. Each field now falls back on its own.
 
 ## Real agent integration
 

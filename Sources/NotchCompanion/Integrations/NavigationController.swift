@@ -35,23 +35,29 @@ final class NavigationController {
         }
     }
 
+    /// Messages are short: the notch shows them on one line.
     func open(_ event: AgentEvent) async -> Result {
         let host = event.host
-        guard let bundleID = host.bundleID, bundleID != AppPaths.bundleID else {
-            return Result(level: .unavailable, message: "The source app for this event is unknown.")
+        guard let bundleID = host.bundleID else {
+            return Result(level: .unavailable, message: "Source app unknown")
+        }
+        if bundleID == AppPaths.bundleID {
+            // Previews and connection tests come from this app's own window.
+            NSApp.activate()
+            return Result(level: .app, message: "Opened Notch Companion")
         }
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         guard !running.isEmpty else {
             // Never open an unrelated or relaunched session.
-            return Result(level: .unavailable, message: "\(host.name ?? bundleID) is closed, so there's nothing to return to.")
+            return Result(level: .unavailable, message: "\(host.name ?? bundleID) is closed")
         }
 
         if level(for: host) == .exactSession, let tty = host.tty,
            await Self.focusTab(bundleID: bundleID, tty: tty) {
-            return Result(level: .exactSession, message: "Opened the \(host.name ?? "terminal") tab.")
+            return Result(level: .exactSession, message: "Opened the \(host.name ?? "terminal") tab")
         }
         await activate(bundleID: bundleID)
-        return Result(level: .app, message: "Opened \(host.name ?? bundleID).")
+        return Result(level: .app, message: "Opened \(host.name ?? bundleID)")
     }
 
     /// Activation through LaunchServices works from a background app, where
@@ -109,7 +115,8 @@ final class NavigationController {
         default:
             return false
         }
-        let output = IntegrationManager.run("/usr/bin/osascript", ["-e", script])
+        // The first run waits on macOS's Automation prompt; give the user time to answer it.
+        let output = IntegrationManager.run("/usr/bin/osascript", ["-e", script], timeout: 60)
         return output?.trimmingCharacters(in: .whitespacesAndNewlines) == "ok"
     }
 }

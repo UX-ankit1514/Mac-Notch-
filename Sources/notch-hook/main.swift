@@ -74,10 +74,11 @@ func simulate(_ args: [String]) {
         type: type, agent: agent,
         sessionID: Sanitize.sessionID(options["session"] ?? "test-\(agent.rawValue)"),
         host: detected.host,
-        project: options["project"] ?? ProjectName.resolve(cwd: cwd),
+        // Same limits as real events, so a long name is trimmed, not rejected.
+        project: (options["project"] ?? ProjectName.resolve(cwd: cwd)).map { Sanitize.short($0, limit: 120) },
         cwd: cwd,
         connectorVersion: NotchVersion.simulated,
-        detail: options["detail"])
+        detail: options["detail"].map { Sanitize.short($0, limit: 64) })
     log("simulate \(type.rawValue): \(deliver(event))")
 }
 

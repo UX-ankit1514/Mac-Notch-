@@ -79,27 +79,32 @@ struct NotchRootView: View {
 
     var body: some View {
         let g = state.geometry
-        let size = state.size
-        let flare = g.hasNotch ? NotchLayout.flare : 0
-        let shape = NotchShape(flare: flare, bottomRadius: state.mode == .compact ? 12 : NotchLayout.bottomRadius,
-                               pill: !g.hasNotch)
-        let hidden = state.mode == .hidden
+        let shape = state.shape
+        let open = state.mode != .hidden
         let cf = state.characterFrame
 
+        // Fixed canvas the size of the panel; only the silhouette animates.
+        // The character and copy keep their own coordinates and are revealed
+        // by the growing shape, the way the Dynamic Island reveals content.
         ZStack(alignment: .topLeading) {
-            Color.black
-            CharacterView(controller: controller.character, canvasCenter: state.canvasCenter)
+            AnimatedCharacterView(controller: controller.character, canvasCenter: state.canvasCenter)
                 .frame(width: cf.width, height: cf.height)
                 .offset(x: cf.minX, y: cf.minY)
-            content(flare: flare)
+            content
         }
-        .frame(width: size.width + 2 * flare, height: size.height, alignment: .topLeading)
+        .frame(width: NotchLayout.panelWidth, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(.black)
         .clipShape(shape)
+        // Depth from the path alone, not the rendered content; gone when
+        // tucked into the notch.
+        .background {
+            shape.fill(.black)
+                .shadow(color: .black.opacity(open ? 0.34 : 0), radius: 16, y: 8)
+        }
         .contentShape(shape)
-        .shadow(color: .black.opacity(hidden ? 0 : 0.32), radius: 14, y: 6)
-        .opacity(hidden ? 0 : 1)
-        .scaleEffect(hidden && !g.hasNotch ? 0.96 : 1, anchor: .top)
-        .animation(.easeOut(duration: hidden ? 0.15 : 0.08).delay(hidden ? 0.18 : 0), value: hidden)
+        .opacity(state.revealed ? 1 : 0)
+        .scaleEffect(!g.hasNotch && !open ? 0.94 : 1, anchor: .top)
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
             case let .active(location):
@@ -119,6 +124,8 @@ struct NotchRootView: View {
         .padding(.top, g.topOffset)
     }
 
+    private var reduceMotion: Bool { model.reduceMotion }
+
     private var accessibilityText: String {
         if state.mode == .list { return AlertCopy.multipleTitle(count: state.pending.count) }
         guard let event = state.alert?.record.event else { return "Notch Companion" }
@@ -126,14 +133,14 @@ struct NotchRootView: View {
     }
 
     @ViewBuilder
-    private func content(flare: CGFloat) -> some View {
+    private var content: some View {
         switch state.mode {
         case .detail:
-            if let alert = state.alert { detail(alert, flare: flare) }
+            if let alert = state.alert { detail(alert) }
         case .compact:
-            if let alert = state.alert { compact(alert, flare: flare) }
+            if let alert = state.alert { compact(alert) }
         case .list:
-            list(flare: flare)
+            list
         case .hidden, .character:
             EmptyView()
         }
@@ -141,10 +148,10 @@ struct NotchRootView: View {
 
     // MARK: Detail: character left, message right
 
-    private func detail(_ alert: NotchAlert, flare: CGFloat) -> some View {
+    private func detail(_ alert: NotchAlert) -> some View {
         let event = alert.record.event
-        let x = flare + NotchLayout.characterSlot - 4
-        let width = state.size.width - NotchLayout.characterSlot - 14
+        let x = state.bodyMinX(for: .detail) + NotchLayout.characterSlot - 4
+        let width = state.size(for: .detail).width - NotchLayout.characterSlot - 14
         return ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
@@ -165,10 +172,17 @@ struct NotchRootView: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(.white.opacity(0.62))
                     .lineLimit(1)
-                if state.hovering, let hint = state.navigationHint {
+                if let problem = state.navigationProblem {
+                    Label(problem, systemImage: "exclamationmark.circle")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineLimit(1)
+                        .transition(.opacity)
+                } else if state.hovering, let hint = state.navigationHint {
                     Text(hint + " ›")
                         .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
                         .transition(.opacity)
                 }
             }
@@ -203,16 +217,18 @@ struct NotchRootView: View {
         }
         .frame(width: width, height: NotchLayout.contentHeight)
         .offset(x: x, y: state.geometry.contentTop)
-        .transition(.opacity.combined(with: .offset(y: 4)).animation(.easeOut(duration: 0.2).delay(0.08)))
+        // Follows the character's glide left, once it has made room.
+        .transition(.materialize(delay: 0.16, anchor: .leading, drift: 10, reduceMotion: reduceMotion))
         .id(alert.record.id)
     }
 
     // MARK: Compact: tiny character left, status right
 
-    private func compact(_ alert: NotchAlert, flare: CGFloat) -> some View {
+    private func compact(_ alert: NotchAlert) -> some View {
         let g = state.geometry
         let event = alert.record.event
-        let wingStart = g.hasNotch ? flare + NotchLayout.compactWing + g.notchSize.width : flare + 68
+        let bodyMinX = state.bodyMinX(for: .compact)
+        let wingStart = g.hasNotch ? bodyMinX + NotchLayout.compactWing + g.notchSize.width : bodyMinX + 68
         return HStack(spacing: 5) {
             Image(systemName: event.type.symbol)
                 .font(.system(size: 10, weight: .bold))
@@ -223,15 +239,16 @@ struct NotchRootView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .frame(width: g.hasNotch ? NotchLayout.compactWing - 8 : 150, height: state.size.height,
+        .frame(width: g.hasNotch ? NotchLayout.compactWing - 8 : 150, height: state.size(for: .compact).height,
                alignment: g.hasNotch ? .center : .leading)
         .offset(x: wingStart + 2, y: 0)
-        .transition(.opacity)
+        .transition(.materialize(delay: 0.08, anchor: g.hasNotch ? .center : .leading, reduceMotion: reduceMotion))
+        .id(alert.record.id)
     }
 
     // MARK: List: every pending request, newest first
 
-    private func list(flare: CGFloat) -> some View {
+    private var list: some View {
         let top = state.geometry.contentTop
         let rows = Array(state.pending.prefix(NotchLayout.maxRows))
         return VStack(alignment: .leading, spacing: 0) {
@@ -254,11 +271,45 @@ struct NotchRootView: View {
                            open: { controller.open(record) },
                            dismiss: { model.dismiss(record.id) })
                     .frame(height: NotchLayout.rowHeight)
+                    .transition(.materialize(delay: 0, anchor: .top, reduceMotion: reduceMotion))
             }
         }
-        .frame(width: state.size.width, alignment: .topLeading)
-        .offset(x: flare, y: top)
-        .transition(.opacity.animation(.easeOut(duration: 0.18).delay(0.06)))
+        .frame(width: state.size(for: .list).width, alignment: .topLeading)
+        .offset(x: state.bodyMinX(for: .list), y: top)
+        .transition(.materialize(delay: 0.08, anchor: .top, reduceMotion: reduceMotion))
+    }
+}
+
+// MARK: - Content transitions
+
+/// Copy settles in once the notch has made room, and leaves quickly, before
+/// the shape closes, so text is never squeezed by the moving edge. Reduce
+/// Motion keeps it to a plain cross-fade. (No blur: animating a blur costs
+/// dropped frames while the silhouette is resizing.)
+private struct Materialize: ViewModifier {
+    var hidden: Bool
+    var anchor: UnitPoint
+    var scale: CGFloat
+    var drift: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(hidden ? 0 : 1)
+            .scaleEffect(hidden ? scale : 1, anchor: anchor)
+            .offset(x: hidden ? drift : 0)
+    }
+}
+
+private extension AnyTransition {
+    /// `drift`: how far right of its place the copy starts, so it follows motion leftward.
+    static func materialize(delay: Double, anchor: UnitPoint, drift: CGFloat = 0, reduceMotion: Bool) -> AnyTransition {
+        func effect(scale: CGFloat, drift: CGFloat) -> AnyTransition {
+            reduceMotion ? .opacity : .modifier(active: Materialize(hidden: true, anchor: anchor, scale: scale, drift: drift),
+                                                identity: Materialize(hidden: false, anchor: anchor, scale: 1, drift: 0))
+        }
+        let arrive: Animation = reduceMotion ? NotchMotion.reduced : .smooth(duration: 0.32).delay(delay)
+        return .asymmetric(insertion: effect(scale: 0.96, drift: drift).animation(arrive),
+                           removal: effect(scale: 0.98, drift: 0).animation(.easeOut(duration: 0.12)))
     }
 }
 

@@ -14,9 +14,15 @@ enum Curve {
 extension CALayer {
     /// Animates from what's on screen now to `value` and commits it as the
     /// model value, so interrupting retargets smoothly instead of jumping.
+    ///
+    /// Mid-animation, "on screen" is the presentation value. Otherwise it's
+    /// the model value: the presentation layer lags a frame behind a value
+    /// set just before (an entry's start position, a freshly shown pose), and
+    /// animating from it would silently skip that motion.
     func animate(_ keyPath: String, to value: Any, duration: CFTimeInterval,
                  delay: CFTimeInterval = 0, curve: CAMediaTimingFunction = Curve.out) {
-        let from = presentation()?.value(forKeyPath: keyPath) ?? self.value(forKeyPath: keyPath)
+        let inFlight = animation(forKey: keyPath) != nil
+        let from = (inFlight ? presentation()?.value(forKeyPath: keyPath) : nil) ?? self.value(forKeyPath: keyPath)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         setValue(value, forKeyPath: keyPath)
@@ -202,6 +208,7 @@ final class CharacterRig {
     private var rigs: [Pose: PoseRig] = [:]
     private(set) var current: Pose?
     private var clip: (layer: AVPlayerLayer, looper: AVPlayerLooper)?
+    private var stackTop: CGFloat = 0
 
     /// Horizontal centre of the canvas inside the view, 0…1.
     var canvasCenter: CGFloat = 0.5 { didSet { layout() } }
@@ -244,18 +251,36 @@ final class CharacterRig {
         return made
     }
 
+    /// Builds every pose up front (invisible), so the first appearance of a
+    /// pose never creates layers or uploads textures mid-animation.
+    func prewarm() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        Pose.allCases.forEach { _ = rig(for: $0) }
+        CATransaction.commit()
+    }
+
     /// Cross-fades to `pose`. Missing assets fall back to a neutral pose
     /// rather than broken imagery.
+    ///
+    /// The incoming pose fades in on top while the outgoing one holds a beat
+    /// longer underneath, so the character never turns see-through mid-change
+    /// (two half-transparent poses read as a ghostly double exposure).
     func show(_ pose: Pose, fade: CFTimeInterval = 0.18, delay: CFTimeInterval = 0) {
         let target = rig(for: pose) ?? rig(for: .lookAround) ?? rigs.values.first
         guard let target, target.pose != current else { return }
+        stackTop += 1
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        target.root.zPosition = stackTop        // in front of the pose it replaces
+        CATransaction.commit()
         if let old = currentRig {
-            old.root.animate("opacity", to: Float(0), duration: fade, delay: delay, curve: Curve.inOut)
+            old.root.animate("opacity", to: Float(0), duration: fade, delay: delay + fade * 0.5, curve: Curve.inOut)
         }
         target.eyes.forEach { $0.look(nil, duration: 0); $0.setLid(0, duration: 0) }
         target.hand?.removePulses()
         target.fx?.removePulses()
-        target.root.animate("opacity", to: Float(1), duration: fade, delay: delay, curve: Curve.inOut)
+        target.root.animate("opacity", to: Float(1), duration: fade, delay: delay, curve: Curve.out)
         current = target.pose
     }
 
@@ -270,6 +295,7 @@ final class CharacterRig {
         playerLayer.frame = actor.bounds
         playerLayer.videoGravity = .resizeAspect
         playerLayer.pixelBufferAttributes = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        playerLayer.zPosition = 1_000_000           // above every pose (poses stack by zPosition)
         actor.addSublayer(playerLayer)
         currentRig?.root.opacity = 0
         player.play()

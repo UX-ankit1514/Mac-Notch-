@@ -14,6 +14,15 @@ private func event(
                agentPID: agentPID, timestamp: t0.addingTimeInterval(seconds), detail: detail)
 }
 
+private extension AgentEvent {
+    /// As sent by Character Preview or a connection test.
+    func simulated() -> AgentEvent {
+        var copy = self
+        copy.connectorVersion = NotchVersion.simulated
+        return copy
+    }
+}
+
 @Suite struct NotificationManagerTests {
     let policy = NotificationPolicy()
 
@@ -179,6 +188,25 @@ private func event(
         #expect(m.pending.map(\.event.sessionID) == ["alive"])
         let later = m.expire(now: t0.addingTimeInterval(13 * 3600), isAlive: { _ in true })
         #expect(later.map(\.event.sessionID) == ["alive"])
+    }
+
+    @Test func `previews and connection tests clear themselves instead of lingering`() {
+        var m = NotificationManager()
+        _ = m.ingest(event(.permission, session: "test-claude-code", detail: "Test").simulated(), policy: policy, now: t0)
+        _ = m.ingest(event(.question, session: "preview-question").simulated(), policy: policy, now: t0)
+        _ = m.ingest(event(.permission, session: "real"), policy: policy, now: t0)
+
+        // Dismissing a simulated request settles it; a real one stays pending.
+        let dismissed = m.dismissAll(now: t0.addingTimeInterval(1))
+        #expect(dismissed.count == 3)
+        #expect(m.allPending.map(\.event.sessionID) == ["real"])
+
+        // Undismissed, a simulated request expires after a short lifetime.
+        _ = m.ingest(event(.permission, session: "test-codex", detail: "Test").simulated(), policy: policy, now: t0)
+        #expect(m.expire(now: t0.addingTimeInterval(60), isAlive: { _ in true }).isEmpty)
+        let expired = m.expire(now: t0.addingTimeInterval(121), isAlive: { _ in true })
+        #expect(expired.map(\.event.sessionID) == ["test-codex"])
+        #expect(m.allPending.map(\.event.sessionID) == ["real"])
     }
 
     @Test func `gentle reminders respect the interval`() {

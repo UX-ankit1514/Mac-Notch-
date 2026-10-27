@@ -40,9 +40,12 @@ public enum JSONValue: Equatable, Sendable {
         return nil
     }
 
+    /// Whole part of the number, or nil when it doesn't fit in an Int.
     public var int: Int? {
-        if case let .number(n) = self { return Int(n) ?? Double(n).map { Int($0) } }
-        return nil
+        guard case let .number(n) = self else { return nil }
+        if let exact = Int(n) { return exact }
+        guard let d = Double(n), d.isFinite, d > -9.2e18, d < 9.2e18 else { return nil }
+        return Int(d)
     }
 
     public var array: [JSONValue]? {
@@ -216,12 +219,19 @@ extension JSONValue {
                     case UInt8(ascii: "t"): out.append(0x09)
                     case UInt8(ascii: "u"):
                         var scalar = try hex4()
+                        // Join a surrogate pair only when the next escape really is
+                        // a low surrogate; otherwise leave it to be read on its own.
                         if (0xD800...0xDBFF).contains(scalar),
                            index + 1 < bytes.count, bytes[index] == UInt8(ascii: "\\"),
                            bytes[index + 1] == UInt8(ascii: "u") {
+                            let resume = index
                             index += 2
                             let low = try hex4()
-                            scalar = 0x10000 + ((scalar - 0xD800) << 10) + (low - 0xDC00)
+                            if (0xDC00...0xDFFF).contains(low) {
+                                scalar = 0x10000 + ((scalar - 0xD800) << 10) + (low - 0xDC00)
+                            } else {
+                                index = resume
+                            }
                         }
                         let s = Unicode.Scalar(scalar) ?? "\u{FFFD}"
                         out.append(contentsOf: Array(String(Character(s)).utf8))

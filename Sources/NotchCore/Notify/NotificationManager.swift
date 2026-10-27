@@ -30,6 +30,8 @@ public struct NotificationRecord: Sendable, Identifiable, Hashable {
 
     public var emotion: Emotion { EmotionEngine.emotion(for: event.type) }
     public var isActionable: Bool { status == .pending && event.type.needsAttention }
+    /// A preview or connection test: no agent is behind it to resolve it.
+    public var isSimulated: Bool { event.connectorVersion == NotchVersion.simulated }
 }
 
 /// Inputs from settings and the system that shape presentation.
@@ -85,6 +87,9 @@ public struct NotificationManager: Sendable {
     public var transientDuration: TimeInterval = 5
     public var lowPriorityDuration: TimeInterval = 3.5
     public var pendingLifetime: TimeInterval = 12 * 3600
+    /// Previews and connection tests have no agent to resolve them, so they
+    /// clear themselves instead of lingering as real requests.
+    public var simulatedLifetime: TimeInterval = 120
     public var duplicateWindow: TimeInterval = 5
 
     public private(set) var records: [UUID: NotificationRecord] = [:]
@@ -263,14 +268,26 @@ public struct NotificationManager: Sendable {
 
     // MARK: User actions
 
-    public mutating func dismiss(_ id: UUID) {
+    /// Hides a request from the notch. A real request stays pending until its
+    /// agent moves on; a simulated one has no agent, so dismissing settles it.
+    public mutating func dismiss(_ id: UUID, now: Date = Date()) {
         if transient?.id == id { transient = nil }
-        records[id]?.dismissed = true
+        guard var record = records[id] else { return }
+        record.dismissed = true
+        if record.isActionable && record.isSimulated {
+            record.status = .resolved
+            record.resolvedAt = now
+        }
+        records[id] = record
     }
 
-    public mutating func dismissAll() {
+    /// Dismisses everything; returns the records that changed.
+    @discardableResult
+    public mutating func dismissAll(now: Date = Date()) -> [NotificationRecord] {
         transient = nil
-        for id in records.keys where records[id]?.isActionable == true { records[id]?.dismissed = true }
+        let ids = records.values.filter(\.isActionable).map(\.id)
+        for id in ids { dismiss(id, now: now) }
+        return ids.compactMap { records[$0] }
     }
 
     /// Brings dismissed requests back (the "show pending" action).
@@ -284,7 +301,8 @@ public struct NotificationManager: Sendable {
     public mutating func expire(now: Date = Date(), isAlive: (Int32) -> Bool = HostDetector.isAlive) -> [NotificationRecord] {
         var changed: [NotificationRecord] = []
         for var record in records.values where record.isActionable {
-            let tooOld = now.timeIntervalSince(record.lastSeen) > pendingLifetime
+            let lifetime = record.isSimulated ? simulatedLifetime : pendingLifetime
+            let tooOld = now.timeIntervalSince(record.lastSeen) > lifetime
             let agentGone = record.event.agentPID.map { !isAlive($0) } ?? false
             guard tooOld || agentGone else { continue }
             record.status = .expired
@@ -296,6 +314,11 @@ public struct NotificationManager: Sendable {
         // Keep memory bounded: resolved/expired records live on in history.
         let settled = records.values.filter { !$0.isActionable && now.timeIntervalSince($0.lastSeen) > 600 }
         for record in settled where record.id != transient?.id { records[record.id] = nil }
+        lastTransientByKey = lastTransientByKey.filter { now.timeIntervalSince($0.value) < duplicateWindow }
+        let waitingSessions = Set(records.values.filter(\.isActionable).map(\.event.sessionKey))
+        sessions = sessions.filter { key, state in
+            waitingSessions.contains(key) || (!state.ended && now.timeIntervalSince(state.lastEvent) < pendingLifetime)
+        }
         return changed
     }
 

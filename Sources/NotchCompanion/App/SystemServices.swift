@@ -6,7 +6,12 @@ import ServiceManagement
 
 /// Launch at login through SMAppService (PRD FR-01).
 enum LoginItem {
-    static var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
+    /// Registered, including while macOS waits for the user's approval:
+    /// switching it off then withdraws the request.
+    static var isEnabled: Bool {
+        let status = SMAppService.mainApp.status
+        return status == .enabled || status == .requiresApproval
+    }
 
     static var statusText: String {
         switch SMAppService.mainApp.status {
@@ -35,18 +40,24 @@ final class FocusObserver {
         refresh()
     }
 
+    /// Cheap enough to call per event, which is how Focus changes are noticed.
     func refresh() {
         let center = INFocusStatusCenter.default
+        let focused: Bool, text: String
         switch center.authorizationStatus {
         case .authorized:
-            isFocused = center.focusStatus.isFocused ?? false
-            availability = "Available"
+            focused = center.focusStatus.isFocused ?? false
+            text = "Available"
         case .notDetermined:
-            availability = "Not requested"
+            focused = false
+            text = "Not requested"
         default:
-            isFocused = false
-            availability = "Unavailable in this build — use Quiet Mode or Quiet Hours"
+            focused = false
+            text = "Unavailable in this build — use Quiet Mode or Quiet Hours"
         }
+        // Assign only on change, so open Settings doesn't redraw per event.
+        if isFocused != focused { isFocused = focused }
+        if availability != text { availability = text }
     }
 
     func request() {
@@ -63,9 +74,11 @@ final class HotKey {
     private var handler: EventHandlerRef?
     private static var action: (@MainActor () -> Void)?
 
+    /// Safe to call on every settings change: registers once.
     func register(_ action: @escaping @MainActor () -> Void) {
-        unregister()
         Self.action = action
+        guard ref == nil else { return }
+        unregister()
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
             MainActor.assumeIsolated { HotKey.action?() }
